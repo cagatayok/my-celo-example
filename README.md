@@ -1,34 +1,57 @@
-🌍 Project Summary
-This Decentralized Application (dApp) simulation aims to optimize international money transfers (remittances) by leveraging the core advantages of the Celo ecosystem. By utilizing low-transaction-cost cUSD stablecoin transfers, the goal is to provide users with a faster, more transparent, and cost-effective transfer experience compared to traditional banking.
+# 🌍 Decentralized Remittance dApp Simulation
 
-✨ Key Features
-Financial Inclusion: Designed for users seeking to avoid high transfer fees.
+This **Decentralized Application (dApp)** simulation aims to optimize international money transfers (remittances) by leveraging the **Celo** ecosystem.  
+By utilizing low-transaction-cost **cUSD stablecoin transfers**, the goal is to provide users with a **faster, more transparent, and cost-effective** transfer experience compared to traditional banking systems.
 
-Wallet-Based Transfer: P2P transfer simulation via the recipient's Wallet Address (Wallet ID) instead of a phone number.
+---
 
-Instant Balance Deduction: Upon successful simulated transfers, an immediate deduction is made from the user's cUSD balance, which is maintained in the client-side state.
+## ✨ Key Features
 
-Transaction History: A history of all performed transfers is listed within the application.
+- **Financial Inclusion:**  
+  Designed for users seeking to avoid high transfer fees in traditional remittance channels.
 
-Asset: The transfer of the cUSD (Celo Dollar) stablecoin is simulated.
+- **Wallet-Based Transfer:**  
+  Peer-to-peer (P2P) transfer simulation via the recipient’s **Wallet Address (Wallet ID)** instead of a phone number.
 
-🛠️ Technologies Used
-Backend (Simulation): Solidity, ERC-20 (IERC20) Contract logic, and defining the token transfer flow.
+- **Instant Balance Deduction:**  
+  Upon a successful simulated transfer, the sender’s **cUSD balance** (stored in client-side state) is immediately reduced.
 
-Frontend: React, Next.js, Tailwind CSS for a responsive interface, and mimicking the Scaffold-ETH style.
+- **Transaction History:**  
+  All performed transfers are stored and displayed in the in-app **transaction history** section.
 
-Business Logic: Client-Side State Management to simulate balance and transaction history without Web3 dependency (due to Canvas constraints).
+- **Asset:**  
+  The simulated transfers utilize **cUSD (Celo Dollar)**, representing stable-value crypto assets within the Celo ecosystem.
 
-🚀 Local Setup (For Scaffold-ETH)
-Since this project mimics the Scaffold-ETH infrastructure, the following steps are recommended for a real Web3 integration:
+---
 
-Deploy the Contract: Deploy the packages/hardhat/contracts/RemittanceDapp.sol file to your local chain.
+## 🛠️ Technologies Used
 
-Frontend Integration: Replace the packages/nextjs/app/page.tsx file with the provided React code.
+### Backend (Simulation)
+- **Solidity**
+- **ERC-20 (IERC20)** standard for token behavior
+- **RemittanceDapp.sol** contract defines the token transfer logic and events
 
-Run: Start the chain and the application (yarn chain and yarn start).
+### Frontend
+- **React**
+- **Next.js**
+- **Tailwind CSS** (for responsive, modern UI)
+- Scaffold-ETH inspired UI/UX structure
 
-Note: For a real balance deduction on a live chain, the connected wallet would first need to perform an Approve transaction on the token contract.
+### Business Logic
+- **Client-Side State Management**  
+  Used to simulate balances and transaction history **without Web3 dependencies** (due to Canvas constraints).
+
+---
+
+## 🚀 Local Setup (For Scaffold-ETH Integration)
+
+Since this project mimics **Scaffold-ETH** architecture, follow these steps for full Web3 integration:
+
+1. **Deploy the Smart Contract**
+   ```bash
+   cd packages/hardhat
+   npx hardhat run scripts/deploy.js --network localhost
+
 <div align="center">
   <img src="celoproje1.png" alt="Celo Remittance dApp Ekran Görüntüsü" width="600"/>
 </div>
