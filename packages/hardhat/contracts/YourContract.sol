@@ -1,78 +1,121 @@
-//SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
 
-// Useful for debugging. Remove when deploying to a live network.
-import "hardhat/console.sol";
+/// @title RemittanceDapp - cUSD / ERC-20 Remittance Simulation
+/// @author
+/// @notice Basit bir remittance (para gönderme) akıllı kontratı. Gönderici token sözleşmesinde önce approve yapmalı.
+/// @dev OpenZeppelin IERC20 + SafeERC20 kullanır.
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-// Use openzeppelin to inherit battle-tested implementations (ERC20, ERC721, etc)
-// import "@openzeppelin/contracts/access/Ownable.sol";
+contract RemittanceDapp is Ownable {
+    using SafeERC20 for IERC20;
 
-/**
- * A smart contract that allows changing a state variable of the contract and tracking the changes
- * It also allows the owner to withdraw the Ether in the contract
- * @author BuidlGuidl
- */
-contract YourContract {
-    // State Variables
-    address public immutable owner;
-    string public greeting = "Building Unstoppable Apps!!!";
-    bool public premium = false;
-    uint256 public totalCounter = 0;
-    mapping(address => uint) public userGreetingCounter;
+    uint256 private _txCount;
 
-    // Events: a way to emit log statements from smart contract that can be listened to by external parties
-    event GreetingChange(address indexed greetingSetter, string newGreeting, bool premium, uint256 value);
-
-    // Constructor: Called once on contract deployment
-    // Check packages/hardhat/deploy/00_deploy_your_contract.ts
-    constructor(address _owner) {
-        owner = _owner;
+    struct RemitTx {
+        uint256 id;
+        address token;       // token contract (ör. cUSD)
+        address sender;
+        address recipient;
+        uint256 amount;
+        uint256 timestamp;
     }
 
-    // Modifier: used to define a set of rules that must be met before or after a function is executed
-    // Check the withdraw() function
-    modifier isOwner() {
-        // msg.sender: predefined variable that represents address of the account that called the current function
-        require(msg.sender == owner, "Not the Owner");
-        _;
+    // id => RemitTx
+    mapping(uint256 => RemitTx) private _transactions;
+
+    // user address => list of tx ids (hem gönderen hem alıcı için tutulur)
+    mapping(address => uint256[]) private _userTxIds;
+
+    // Events
+    event RemittanceSent(
+        uint256 indexed id,
+        address indexed token,
+        address indexed sender,
+        address recipient,
+        uint256 amount,
+        uint256 timestamp
+    );
+
+    event EmergencyWithdraw(address indexed token, address indexed to, uint256 amount);
+
+    constructor() {
+        _txCount = 0;
     }
 
-    /**
-     * Function that allows anyone to change the state variable "greeting" of the contract and increase the counters
-     *
-     * @param _newGreeting (string memory) - new greeting to save on the contract
-     */
-    function setGreeting(string memory _newGreeting) public payable {
-        // Print data to the hardhat chain console. Remove when deploying to a live network.
-        console.log("Setting new greeting '%s' from %s", _newGreeting, msg.sender);
+    /// @notice Gönderici önce token kontratında approve(this, amount) çağrısı yapmalı.
+    /// @param token Token contract address (ör. cUSD token address)
+    /// @param recipient Alıcının wallet adresi
+    /// @param amount Gönderilecek token miktarı (tokenın decimals'ına göre)
+    function sendRemittance(
+        address token,
+        address recipient,
+        uint256 amount
+    ) external returns (uint256) {
+        require(token != address(0), "Token address zero");
+        require(recipient != address(0), "Recipient address zero");
+        require(amount > 0, "Amount must be > 0");
+        require(msg.sender != recipient, "Sender and recipient must differ");
 
-        // Change state variables
-        greeting = _newGreeting;
-        totalCounter += 1;
-        userGreetingCounter[msg.sender] += 1;
+        IERC20 tok = IERC20(token);
 
-        // msg.value: built-in global variable that represents the amount of ether sent with the transaction
-        if (msg.value > 0) {
-            premium = true;
-        } else {
-            premium = false;
-        }
+        // transferFrom: göndericiden kontrata değil doğrudan alıcıya çekip gönderiyoruz
+        // Bu yaklaşım: kontratın ara hesap tutmasına gerek bırakmaz; contract hiçbir surette
+        // tokensal bakiye tutmamalı -- fakat transferFrom'dan önce approve gerekli olacaktır.
+        // safeTransferFrom garanti sağlar (revert vs false).
+        tok.safeTransferFrom(msg.sender, recipient, amount);
 
-        // emit: keyword used to trigger an event
-        emit GreetingChange(msg.sender, _newGreeting, msg.value > 0, msg.value);
+        // create tx record
+        _txCount += 1;
+        uint256 id = _txCount;
+
+        RemitTx memory rtx = RemitTx({
+            id: id,
+            token: token,
+            sender: msg.sender,
+            recipient: recipient,
+            amount: amount,
+            timestamp: block.timestamp
+        });
+
+        _transactions[id] = rtx;
+        _userTxIds[msg.sender].push(id);
+        _userTxIds[recipient].push(id);
+
+        emit RemittanceSent(id, token, msg.sender, recipient, amount, block.timestamp);
+
+        return id;
     }
 
-    /**
-     * Function that allows the owner to withdraw all the Ether in the contract
-     * The function can only be called by the owner of the contract as defined by the isOwner modifier
-     */
-    function withdraw() public isOwner {
-        (bool success, ) = owner.call{ value: address(this).balance }("");
-        require(success, "Failed to send Ether");
+    /* -------------------------------------------
+       View fonksiyonları - frontend için
+       ------------------------------------------- */
+
+    /// @notice Belirli bir işlem kaydını getirir
+    function getTransaction(uint256 id) external view returns (RemitTx memory) {
+        require(id > 0 && id <= _txCount, "Invalid tx id");
+        return _transactions[id];
     }
 
-    /**
-     * Function that allows the contract to receive ETH
-     */
-    receive() external payable {}
+    /// @notice Bir kullanıcının (gönderen veya alıcı) işlem id listesini getirir
+    function getUserTransactionIds(address user) external view returns (uint256[] memory) {
+        return _userTxIds[user];
+    }
+
+    /// @notice Sözleşme üzerinde kazara kalan token'ları kurtarmak için ONLY OWNER (opsiyonel).
+    /// @dev Normal işleyişte kontrat token tutmaz; bu fonksiyon sadece acil durum içindir.
+    function emergencyWithdrawToken(address token, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "To address zero");
+        require(token != address(0), "Token address zero");
+        IERC20 tok = IERC20(token);
+        tok.safeTransfer(to, amount);
+        emit EmergencyWithdraw(token, to, amount);
+    }
+
+    /// @notice Toplam işlem sayısını döner
+    function totalTransactions() external view returns (uint256) {
+        return _txCount;
+    }
 }
